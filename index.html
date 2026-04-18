@@ -859,9 +859,9 @@
     <span class="control-label">Sensitivity</span>
     <div class="control-right">
       <div class="slider-wrap">
-        <input type="range" class="ctrl-slider" id="sensitivitySlider" min="0.2" max="4" step="0.1" value="2.0">
+        <input type="range" class="ctrl-slider" id="sensitivitySlider" min="0.2" max="4" step="0.1" value="1.0">
       </div>
-      <span class="control-value" id="sensitivityValue">2.0x</span>
+      <span class="control-value" id="sensitivityValue">1.0x</span>
     </div>
   </div>
 
@@ -876,14 +876,14 @@
     </div>
   </div>
 
-  <!-- Auto speed slider -->
+  <!-- Auto duration slider -->
   <div class="control-row" id="autoSpeedRow" style="display:none;">
-    <span class="control-label">Auto Speed</span>
+    <span class="control-label">Duration</span>
     <div class="control-right">
       <div class="slider-wrap">
-        <input type="range" class="ctrl-slider" id="autoSpeedSlider" min="1" max="20" step="0.5" value="6">
+        <input type="range" class="ctrl-slider" id="autoDurationSlider" min="30" max="180" step="10" value="60">
       </div>
-      <span class="control-value" id="autoSpeedValue">6</span>
+      <span class="control-value" id="autoDurationValue">60s</span>
     </div>
   </div>
 
@@ -933,7 +933,7 @@ const state = {
   energy: 0,            // 0–100 (displayed / smoothed)
   micActive: false,
   micMuted: false,
-  sensitivity: 2.0,     // mic sensitivity multiplier
+  sensitivity: 1.0,     // mic sensitivity multiplier
   started: false,
   celebrating: false,
   helpVisible: false,
@@ -941,9 +941,11 @@ const state = {
   volume: 0,
   manualBoost: 0,       // temporary manual addition (decays)
   mode: 'mic',          // 'mic', 'manual', 'auto'
-  autoSpeed: 6,         // auto mode rise speed
-  autoTarget: 0,        // auto mode current target
-  autoTimer: 0,         // auto mode internal timer
+  autoDuration: 60,     // seconds to reach 100%
+  autoElapsed: 0,       // time elapsed in auto mode
+  autoWobble: 0,        // current wobble offset
+  autoWobbleTimer: 0,   // time until next wobble change
+  autoWobbleTarget: 0,  // target wobble value
 };
 
 // ═══════════════════════════════════════
@@ -1076,24 +1078,32 @@ function update(time) {
       state.energy -= drainRate * dt;
 
     } else if (state.mode === 'auto') {
-      // ── AUTO MODE: smooth rise/fall with natural variation ──
+      // ── AUTO MODE: timed rise to 100% with natural wobble ──
       state.volume = 0;
       volumeMeterFill.style.width = '0%';
-      state.autoTimer -= dt;
+      state.autoElapsed += dt;
 
-      // Pick a new target periodically (every 2–5 seconds)
-      if (state.autoTimer <= 0) {
-        state.autoTimer = 2 + Math.random() * 3;
-        // Bias target upwards over time, with some randomness
-        const progress = state.energy / 100;
-        const bias = 0.6 + progress * 0.3; // tends to go up
-        state.autoTarget = Math.min(100, state.autoTarget + (Math.random() * 30 - 10) * bias);
-        state.autoTarget = Math.max(5, Math.min(100, state.autoTarget));
+      // Base progress: 0→100% over autoDuration seconds
+      // Use ease-in curve so it starts slow, accelerates toward the end
+      const rawProgress = Math.min(state.autoElapsed / state.autoDuration, 1);
+      const baseEnergy = Math.pow(rawProgress, 0.7) * 100;
+
+      // Natural wobble: random fluctuations that make it look organic
+      state.autoWobbleTimer -= dt;
+      if (state.autoWobbleTimer <= 0) {
+        state.autoWobbleTimer = 1 + Math.random() * 2;
+        // Wobble size decreases as we approach 100%
+        const wobbleRange = (1 - rawProgress) * 12;
+        state.autoWobbleTarget = (Math.random() - 0.4) * wobbleRange;
       }
+      // Smooth wobble
+      state.autoWobble += (state.autoWobbleTarget - state.autoWobble) * 3 * dt;
 
-      // Smoothly move towards target
-      const diff = state.autoTarget - state.energy;
-      state.energy += diff * state.autoSpeed * 0.02 * dt * 60;
+      const targetEnergy = Math.max(0, Math.min(100, baseEnergy + state.autoWobble));
+
+      // Smooth transition
+      const diff = targetEnergy - state.energy;
+      state.energy += diff * 4 * dt;
     }
 
     // Clamp
@@ -1630,8 +1640,8 @@ const sensitivitySlider = document.getElementById('sensitivitySlider');
 const sensitivityVal = document.getElementById('sensitivityValue');
 const drainSlider    = document.getElementById('drainSlider');
 const drainVal       = document.getElementById('drainValue');
-const autoSpeedSlider= document.getElementById('autoSpeedSlider');
-const autoSpeedVal   = document.getElementById('autoSpeedValue');
+const autoDurationSlider = document.getElementById('autoDurationSlider');
+const autoDurationVal = document.getElementById('autoDurationValue');
 const sensitivityRow = document.getElementById('sensitivityRow');
 const autoSpeedRow   = document.getElementById('autoSpeedRow');
 const soundVolSlider = document.getElementById('soundVolSlider');
@@ -1650,9 +1660,9 @@ drainSlider.addEventListener('input', () => {
   drainRate = parseFloat(drainSlider.value);
   drainVal.textContent = drainRate.toFixed(0);
 });
-autoSpeedSlider.addEventListener('input', () => {
-  state.autoSpeed = parseFloat(autoSpeedSlider.value);
-  autoSpeedVal.textContent = state.autoSpeed.toFixed(0);
+autoDurationSlider.addEventListener('input', () => {
+  state.autoDuration = parseInt(autoDurationSlider.value);
+  autoDurationVal.textContent = state.autoDuration + 's';
 });
 
 // Mode switching
@@ -1666,10 +1676,13 @@ function setMode(mode) {
   sensitivityRow.style.display = mode === 'mic' ? 'flex' : 'none';
   autoSpeedRow.style.display = mode === 'auto' ? 'flex' : 'none';
 
-  // Reset auto mode state
+  // Reset auto mode — starts fresh from current energy
   if (mode === 'auto') {
-    state.autoTarget = state.energy;
-    state.autoTimer = 0;
+    state.autoElapsed = 0;
+    state.autoWobble = 0;
+    state.autoWobbleTimer = 0;
+    state.autoWobbleTarget = 0;
+    state.energy = 0; // start from 0
   }
 
   // Update mic status display
