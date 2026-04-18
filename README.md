@@ -10,7 +10,7 @@ A vertical battery displayed on a projector/LED wall fills up based on crowd noi
 
 - **Mic mode** — crowd noise charges the bar; silence drains it
 - **Manual mode** — host controls the bar with keyboard shortcuts
-- **Auto mode** — bar rises and falls on its own with natural variation
+- **Auto mode** — bar automatically rises to 100% over a set duration (default 60s) with natural wobble
 
 When the battery reaches 100%: celebration screen with confetti, 100 kWh stat (enough to fully charge a ZEEKR 7X), and "LET'S RUN!"
 
@@ -43,9 +43,9 @@ That's it — no dependencies, no build step, no install.
 | Control | Options |
 |---------|---------|
 | **Mode** | Mic, Manual, Auto |
-| **Sensitivity** | Slider (mic mode only) |
-| **Drain** | How fast the bar drains (0–20) |
-| **Auto Speed** | Speed of auto mode animation |
+| **Sensitivity** | Slider, default 1.0x (mic mode only) |
+| **Drain** | How fast the bar drains, 0–20 (mic/manual modes) |
+| **Duration** | Auto mode duration in seconds, 30–180s, default 60s |
 | **Rising sound** | Off, Chimes, Melody, Pad |
 | **Celebration sound** | Off, Sparkle, Arpeggio, Fanfare |
 | **Volume** | Master volume slider |
@@ -71,6 +71,7 @@ That's it — no dependencies, no build step, no install.
 - **PowerPoint integration:** Add the URL as a hyperlink on a slide
 - **If mic is too sensitive:** Open control panel (P), lower the Sensitivity slider
 - **If mic causes issues:** Switch to Manual mode, use ↑ and Space
+- **Guaranteed timed sequence:** Switch to Auto mode, set duration to match your warm-up time
 - **Backup:** Keep the `index.html` file on the event laptop — works offline
 
 ## Tech Stack
@@ -84,4 +85,7 @@ That's it — no dependencies, no build step, no install.
 ## Credits
 
 Built for the **Quantum Roadrunner: The Tech Run** fun run event.
-ZEEKR Philippines is a proud sponsor.
+
+- **Organized by:** EMC² Fraternity
+- **Powered by:** Vibe Coders PH
+- **Sponsor:** ZEEKR Philippines
