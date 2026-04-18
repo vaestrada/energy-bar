@@ -845,13 +845,25 @@
     </div>
   </div>
 
-  <!-- Sound style -->
+  <!-- Rising sound -->
   <div class="control-row">
-    <span class="control-label">Sound</span>
+    <span class="control-label">Rising</span>
     <div class="control-right">
-      <button class="mode-btn" id="sndOff" onclick="setSoundMode('off')">Off</button>
-      <button class="mode-btn" id="sndChimes" onclick="setSoundMode('chimes')">Chimes</button>
-      <button class="mode-btn active" id="sndMelody" onclick="setSoundMode('melody')">Melody</button>
+      <button class="mode-btn" id="riseOff" onclick="setRiseMode('off')">Off</button>
+      <button class="mode-btn" id="riseChimes" onclick="setRiseMode('chimes')">Chimes</button>
+      <button class="mode-btn active" id="riseMelody" onclick="setRiseMode('melody')">Melody</button>
+      <button class="mode-btn" id="risePad" onclick="setRiseMode('pad')">Pad</button>
+    </div>
+  </div>
+
+  <!-- Celebration sound -->
+  <div class="control-row">
+    <span class="control-label">Charged</span>
+    <div class="control-right">
+      <button class="mode-btn" id="celebOff" onclick="setCelebMode('off')">Off</button>
+      <button class="mode-btn active" id="celebSparkle" onclick="setCelebMode('sparkle')">Sparkle</button>
+      <button class="mode-btn" id="celebArpeggio" onclick="setCelebMode('arpeggio')">Arpeggio</button>
+      <button class="mode-btn" id="celebFanfare" onclick="setCelebMode('fanfare')">Fanfare</button>
     </div>
   </div>
 
@@ -1159,26 +1171,54 @@ function resetCelebration() {
 // ═══════════════════════════════════════
 //  SOUND ENGINE
 // ═══════════════════════════════════════
-let soundMode = 'melody';  // 'off', 'chimes', 'melody'
-let soundVolume = 0.6;     // 0–1 master volume
+let riseMode = 'melody';     // 'off', 'chimes', 'melody', 'pad'
+let celebMode = 'sparkle';   // 'off', 'sparkle', 'arpeggio', 'fanfare'
+let soundVolume = 0.6;       // 0–1 master volume
 let lastMilestone = -1;
+let padOsc, padOsc2, padGain, padFilter;
 
 // C major pentatonic scale across 2 octaves
 const MELODY_NOTES = [
   523.25, 587.33, 659.25, 783.99, 880.00,
   1046.50, 1174.66, 1318.51, 1567.98, 1760.00,
 ];
-
-// Single chime note (same note, different octaves)
 const CHIME_NOTES = [
   523.25, 587.33, 659.25, 698.46, 783.99,
   880.00, 987.77, 1046.50, 1174.66, 1318.51,
 ];
 
-function initSound() {}
+function initSound() {
+  if (!audioCtx) return;
+  // Set up pad oscillators (always running, volume controlled)
+  padGain = audioCtx.createGain();
+  padGain.gain.value = 0;
+  padFilter = audioCtx.createBiquadFilter();
+  padFilter.type = 'lowpass';
+  padFilter.frequency.value = 400;
+  padFilter.Q.value = 1;
+
+  padOsc = audioCtx.createOscillator();
+  padOsc.type = 'sine';
+  padOsc.frequency.value = 130.81; // C3
+
+  padOsc2 = audioCtx.createOscillator();
+  padOsc2.type = 'sine';
+  padOsc2.frequency.value = 196.00; // G3
+  const pad2Gain = audioCtx.createGain();
+  pad2Gain.gain.value = 0.6;
+
+  padOsc.connect(padFilter);
+  padOsc2.connect(pad2Gain);
+  pad2Gain.connect(padFilter);
+  padFilter.connect(padGain);
+  padGain.connect(audioCtx.destination);
+
+  padOsc.start();
+  padOsc2.start();
+}
 
 function playNote(freq, duration, volume, delay) {
-  if (!audioCtx || soundMode === 'off') return;
+  if (!audioCtx) return;
   const vol = volume * soundVolume;
   if (vol < 0.001) return;
 
@@ -1189,7 +1229,6 @@ function playNote(freq, duration, volume, delay) {
   osc.type = 'sine';
   osc.frequency.value = freq;
 
-  // Subtle warm overtone
   const osc2 = audioCtx.createOscillator();
   const gain2 = audioCtx.createGain();
   osc2.type = 'sine';
@@ -1200,7 +1239,6 @@ function playNote(freq, duration, volume, delay) {
   gain.connect(audioCtx.destination);
   gain2.connect(audioCtx.destination);
 
-  // Envelope: quick attack, gentle decay
   gain.gain.setValueAtTime(0, t);
   gain.gain.linearRampToValueAtTime(vol, t + 0.03);
   gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
@@ -1216,21 +1254,41 @@ function playNote(freq, duration, volume, delay) {
 }
 
 function updateSound(energy) {
-  if (!audioCtx || soundMode === 'off') return;
+  if (!audioCtx) return;
+
+  // ── PAD: warm ambient tone that swells with energy ──
+  if (padGain) {
+    if (riseMode === 'pad' && energy > 1) {
+      const pct = energy / 100;
+      const t = audioCtx.currentTime;
+      const vol = Math.pow(pct, 1.5) * 0.08 * soundVolume;
+      padGain.gain.setTargetAtTime(vol, t, 0.3);
+      // Pitch rises gently: C3 → C4
+      padOsc.frequency.setTargetAtTime(130.81 + pct * 130, t, 0.2);
+      padOsc2.frequency.setTargetAtTime(196 + pct * 196, t, 0.2);
+      // Filter opens up
+      padFilter.frequency.setTargetAtTime(400 + pct * 2500, t, 0.2);
+    } else {
+      padGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.2);
+    }
+  }
+
+  // ── MILESTONE NOTES ──
+  if (riseMode === 'off' || riseMode === 'pad') {
+    lastMilestone = Math.floor(energy / 10);
+    return;
+  }
 
   const milestone = Math.floor(energy / 10);
 
   if (milestone !== lastMilestone && milestone > lastMilestone && milestone >= 1 && milestone <= 10) {
     const noteIndex = Math.min(milestone - 1, 9);
 
-    if (soundMode === 'chimes') {
-      // Single bell-like chime — same pleasant ding, pitch rises slightly
+    if (riseMode === 'chimes') {
       const freq = CHIME_NOTES[noteIndex];
       playNote(freq, 0.6, 0.1, 0);
-      // Add a soft octave above for shimmer
       playNote(freq * 2, 0.3, 0.03, 0.02);
-    } else if (soundMode === 'melody') {
-      // Ascending scale notes
+    } else if (riseMode === 'melody') {
       const freq = MELODY_NOTES[noteIndex];
       const vol = 0.06 + milestone * 0.012;
       playNote(freq, 0.5 + milestone * 0.05, vol, 0);
@@ -1240,35 +1298,88 @@ function updateSound(energy) {
   lastMilestone = milestone;
 }
 
+// ── CELEBRATION SOUNDS ──
 function playCelebrationSound() {
-  if (!audioCtx || soundMode === 'off') return;
+  if (!audioCtx || celebMode === 'off') return;
 
+  // Kill pad if running
+  if (padGain) padGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+
+  if (celebMode === 'sparkle') playCelebSparkle();
+  else if (celebMode === 'arpeggio') playCelebArpeggio();
+  else if (celebMode === 'fanfare') playCelebFanfare();
+}
+
+function playCelebSparkle() {
   // Sparkle cascade — twinkly notes down then up
-  const sparkleNotes = [
+  const notes = [
     2637, 2349, 2093, 1760, 1568, 1397, 1319, 1175, 1047,
     1319, 1568, 2093, 2637, 3136, 3520
   ];
-
-  sparkleNotes.forEach((freq, i) => {
+  notes.forEach((freq, i) => {
     const vol = 0.06 + (i < 9 ? (8 - i) * 0.005 : (i - 8) * 0.008);
     playNote(freq, 0.4 + (i > 9 ? 0.3 : 0), vol, i * 0.08);
   });
-
-  // Shimmering chord
   setTimeout(() => {
-    if (!audioCtx || soundMode === 'off') return;
-    [1047, 1319, 1568, 2093, 2637].forEach((f, i) => {
-      playNote(f, 1.8, 0.045, i * 0.04);
-    });
-  }, sparkleNotes.length * 80 + 100);
+    if (!audioCtx) return;
+    [1047, 1319, 1568, 2093, 2637].forEach((f, i) => playNote(f, 1.8, 0.045, i * 0.04));
+  }, notes.length * 80 + 100);
 }
 
-function setSoundMode(mode) {
-  soundMode = mode;
-  document.getElementById('sndOff').classList.toggle('active', mode === 'off');
-  document.getElementById('sndChimes').classList.toggle('active', mode === 'chimes');
-  document.getElementById('sndMelody').classList.toggle('active', mode === 'melody');
-  document.getElementById('soundVolRow').style.display = mode === 'off' ? 'none' : 'flex';
+function playCelebArpeggio() {
+  // Happy ascending arpeggio — C major going up (do-mi-sol-do-mi-sol-do!)
+  const notes = [523, 659, 784, 1047, 1319, 1568, 2093];
+  notes.forEach((freq, i) => {
+    playNote(freq, 0.5 + (i === notes.length - 1 ? 1.2 : 0), 0.09, i * 0.12);
+  });
+  // Sustained final chord
+  setTimeout(() => {
+    if (!audioCtx) return;
+    [1047, 1319, 1568, 2093].forEach((f, i) => playNote(f, 2.0, 0.05, i * 0.03));
+  }, notes.length * 120 + 200);
+}
+
+function playCelebFanfare() {
+  // Victory fanfare — bold brass-style notes
+  // Ta-da-da-DAAAA pattern
+  const fanfare = [
+    { f: 523, d: 0.15, v: 0.1, t: 0 },
+    { f: 523, d: 0.15, v: 0.1, t: 0.18 },
+    { f: 523, d: 0.15, v: 0.1, t: 0.36 },
+    { f: 698, d: 0.8,  v: 0.12, t: 0.54 },
+    { f: 587, d: 0.15, v: 0.1, t: 1.5 },
+    { f: 659, d: 0.15, v: 0.1, t: 1.68 },
+    { f: 698, d: 0.15, v: 0.1, t: 1.86 },
+    { f: 880, d: 1.2,  v: 0.13, t: 2.04 },
+  ];
+  fanfare.forEach(n => playNote(n.f, n.d, n.v, n.t));
+  // Big final chord
+  setTimeout(() => {
+    if (!audioCtx) return;
+    [523, 659, 784, 1047].forEach((f, i) => playNote(f, 2.5, 0.06, i * 0.02));
+  }, 3300);
+}
+
+// ── MODE SETTERS ──
+function setRiseMode(mode) {
+  riseMode = mode;
+  ['Off', 'Chimes', 'Melody', 'Pad'].forEach(m => {
+    const el = document.getElementById('rise' + m);
+    if (el) el.classList.toggle('active', mode === m.toLowerCase());
+  });
+  // Hide volume row only if both are off
+  document.getElementById('soundVolRow').style.display =
+    (riseMode === 'off' && celebMode === 'off') ? 'none' : 'flex';
+}
+
+function setCelebMode(mode) {
+  celebMode = mode;
+  ['Off', 'Sparkle', 'Arpeggio', 'Fanfare'].forEach(m => {
+    const el = document.getElementById('celeb' + m);
+    if (el) el.classList.toggle('active', mode === m.toLowerCase());
+  });
+  document.getElementById('soundVolRow').style.display =
+    (riseMode === 'off' && celebMode === 'off') ? 'none' : 'flex';
 }
 
 // ═══════════════════════════════════════
@@ -1484,7 +1595,7 @@ const autoSpeedRow   = document.getElementById('autoSpeedRow');
 const soundVolSlider = document.getElementById('soundVolSlider');
 const soundVolVal    = document.getElementById('soundVolValue');
 
-// Slider bindings
+// Slider bindings — sound volume
 soundVolSlider.addEventListener('input', () => {
   soundVolume = parseInt(soundVolSlider.value) / 100;
   soundVolVal.textContent = soundVolSlider.value + '%';
@@ -1523,13 +1634,13 @@ function setMode(mode) {
   updateMicDisplay();
 }
 
-// Sound cycle (S key)
+// Sound cycle (S key) — cycles rising sound
 function toggleSound() {
-  const modes = ['off', 'chimes', 'melody'];
-  const idx = (modes.indexOf(soundMode) + 1) % modes.length;
-  setSoundMode(modes[idx]);
-  const labels = { off: 'SOUND: OFF', chimes: 'SOUND: CHIMES', melody: 'SOUND: MELODY' };
-  sensitivityDisp.textContent = labels[soundMode];
+  const modes = ['off', 'chimes', 'melody', 'pad'];
+  const idx = (modes.indexOf(riseMode) + 1) % modes.length;
+  setRiseMode(modes[idx]);
+  const labels = { off: 'RISING: OFF', chimes: 'RISING: CHIMES', melody: 'RISING: MELODY', pad: 'RISING: PAD' };
+  sensitivityDisp.textContent = labels[riseMode];
   sensitivityDisp.classList.add('visible');
   clearTimeout(sensitivityTimeout);
   sensitivityTimeout = setTimeout(() => sensitivityDisp.classList.remove('visible'), 1200);
