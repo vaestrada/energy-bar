@@ -387,8 +387,22 @@
     font-weight: 700;
   }
 
+  .celebration-car-img {
+    margin-top: clamp(8px, 1.5vh, 16px);
+    height: clamp(60px, 12vh, 160px);
+    width: auto;
+    opacity: 0;
+    transform: translateX(-30px);
+    transition: opacity 0.6s 1.3s, transform 0.6s 1.3s;
+    filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.3));
+  }
+  .celebration-car-img.active {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
   .celebration-run {
-    margin-top: clamp(16px, 3vh, 40px);
+    margin-top: clamp(10px, 2vh, 24px);
     font-size: clamp(28px, 5vw, 72px);
     font-weight: 900;
     letter-spacing: 10px;
@@ -401,7 +415,7 @@
       0 2px 4px rgba(0, 0, 0, 0.5);
     opacity: 0;
     transform: scale(0.8);
-    transition: opacity 0.4s 1.3s, transform 0.4s 1.3s;
+    transition: opacity 0.4s 1.8s, transform 0.4s 1.8s;
   }
   .celebration-run.active { opacity: 1; transform: scale(1); }
 
@@ -804,6 +818,7 @@
   <div class="celebration-kwh" id="celebrationKwh">100 kWh Generated</div>
   <div class="celebration-detail">Powered by Quantum Roadrunner human energy</div>
   <div class="celebration-car">Enough to fully charge a <strong>ZEEKR 7X</strong> and drive 600 km</div>
+  <img class="celebration-car-img" src="logos/zeekr-7x.png" alt="ZEEKR 7X">
   <div class="celebration-run" id="celebrationRun">LET'S RUN!</div>
 </div>
 
@@ -1186,6 +1201,7 @@ function triggerCelebration() {
   celebKwh.classList.add('active');
   celebDetail.classList.add('active');
   celebCar.classList.add('active');
+  document.querySelector('.celebration-car-img').classList.add('active');
   celebRun.classList.add('active');
 
   // Status
@@ -1212,6 +1228,7 @@ function resetCelebration() {
   celebKwh.classList.remove('active');
   celebDetail.classList.remove('active');
   celebCar.classList.remove('active');
+  document.querySelector('.celebration-car-img').classList.remove('active');
   celebRun.classList.remove('active');
   statusText.style.color = '';
   statusText.style.textShadow = '';
