@@ -512,6 +512,151 @@
     letter-spacing: 1px;
   }
 
+  /* ── Control Panel ── */
+  .control-panel {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 60;
+    background: rgba(0, 8, 16, 0.92);
+    border: 1px solid rgba(0, 255, 255, 0.15);
+    border-radius: 12px;
+    padding: 16px 20px;
+    min-width: 260px;
+    backdrop-filter: blur(12px);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(10px);
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .control-panel.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+  .control-panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #00ffff;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+  }
+  .control-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .control-row:last-child { margin-bottom: 0; }
+  .control-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.5);
+    flex-shrink: 0;
+  }
+  .control-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .control-value {
+    font-size: 11px;
+    color: rgba(0, 255, 255, 0.7);
+    min-width: 32px;
+    text-align: right;
+    font-family: monospace;
+  }
+
+  /* Toggle switch */
+  .toggle {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.3s;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: rgba(0, 255, 255, 0.35); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 50%;
+    transition: transform 0.2s, background 0.2s;
+  }
+  .toggle.on::after {
+    transform: translateX(16px);
+    background: #00ffff;
+    box-shadow: 0 0 6px rgba(0, 255, 255, 0.5);
+  }
+
+  /* Slider */
+  .slider-wrap {
+    flex: 1;
+    max-width: 110px;
+    margin: 0 8px;
+  }
+  input[type="range"].ctrl-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"].ctrl-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: #00ffff;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(0, 255, 255, 0.4);
+  }
+
+  /* Mode buttons */
+  .mode-btn {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .mode-btn.active {
+    background: rgba(0, 255, 255, 0.15);
+    border-color: rgba(0, 255, 255, 0.4);
+    color: #00ffff;
+  }
+
+  .panel-toggle-hint {
+    position: fixed;
+    bottom: 12px;
+    left: 16px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.15);
+    z-index: 50;
+    letter-spacing: 1px;
+  }
+
   /* ── Sensitivity Display ── */
   .sensitivity-display {
     position: fixed;
@@ -648,10 +793,68 @@
   <kbd>M</kbd> Mute / Unmute Mic<br>
   <kbd>+</kbd> <kbd>-</kbd> Mic Sensitivity<br>
   <kbd>S</kbd> Toggle Sound<br>
+  <kbd>P</kbd> Control Panel<br>
   <kbd>H</kbd> Toggle this Help<br>
   <kbd>C</kbd> Force Celebration<br>
 </div>
 <div class="help-toggle-hint">Press H for controls</div>
+
+<!-- Control Panel -->
+<div class="control-panel" id="controlPanel">
+  <div class="control-panel-title">⚡ Host Controls</div>
+  
+  <!-- Mode selector -->
+  <div class="control-row">
+    <span class="control-label">Mode</span>
+    <div class="control-right">
+      <button class="mode-btn active" id="modeMic" onclick="setMode('mic')">Mic</button>
+      <button class="mode-btn" id="modeManual" onclick="setMode('manual')">Manual</button>
+      <button class="mode-btn" id="modeAuto" onclick="setMode('auto')">Auto</button>
+    </div>
+  </div>
+
+  <!-- Mic sensitivity slider -->
+  <div class="control-row" id="sensitivityRow">
+    <span class="control-label">Sensitivity</span>
+    <div class="control-right">
+      <div class="slider-wrap">
+        <input type="range" class="ctrl-slider" id="sensitivitySlider" min="0.2" max="4" step="0.1" value="2.0">
+      </div>
+      <span class="control-value" id="sensitivityValue">2.0x</span>
+    </div>
+  </div>
+
+  <!-- Drain speed slider -->
+  <div class="control-row">
+    <span class="control-label">Drain</span>
+    <div class="control-right">
+      <div class="slider-wrap">
+        <input type="range" class="ctrl-slider" id="drainSlider" min="0" max="20" step="0.5" value="8">
+      </div>
+      <span class="control-value" id="drainValue">8</span>
+    </div>
+  </div>
+
+  <!-- Auto speed slider -->
+  <div class="control-row" id="autoSpeedRow" style="display:none;">
+    <span class="control-label">Auto Speed</span>
+    <div class="control-right">
+      <div class="slider-wrap">
+        <input type="range" class="ctrl-slider" id="autoSpeedSlider" min="1" max="20" step="0.5" value="6">
+      </div>
+      <span class="control-value" id="autoSpeedValue">6</span>
+    </div>
+  </div>
+
+  <!-- Sound toggle -->
+  <div class="control-row">
+    <span class="control-label">Sound</span>
+    <div class="control-right">
+      <div class="toggle on" id="soundToggle" onclick="toggleSound()"></div>
+    </div>
+  </div>
+</div>
+<div class="panel-toggle-hint">Press P for panel</div>
 
 <!-- Sensitivity popup -->
 <div class="sensitivity-display" id="sensitivityDisplay"></div>
@@ -668,8 +871,13 @@ const state = {
   started: false,
   celebrating: false,
   helpVisible: false,
+  panelVisible: false,
   volume: 0,
   manualBoost: 0,       // temporary manual addition (decays)
+  mode: 'mic',          // 'mic', 'manual', 'auto'
+  autoSpeed: 6,         // auto mode rise speed
+  autoTarget: 0,        // auto mode current target
+  autoTimer: 0,         // auto mode internal timer
 };
 
 // ═══════════════════════════════════════
@@ -769,7 +977,7 @@ function getEnergyColor(level) {
 // ═══════════════════════════════════════
 let lastTime = 0;
 const CHARGE_RATE = 20;          // max % per second from mic when loud
-const DRAIN_RATE = 8;            // % per second constant drain (always on)
+let drainRate = 8;               // % per second constant drain
 const SMOOTH_SPEED = 8;          // visual smoothing speed
 
 function update(time) {
@@ -777,19 +985,46 @@ function update(time) {
   lastTime = time;
 
   if (state.started && !state.celebrating) {
-    // Mic input → direct volume (0–1)
-    const vol = getMicVolume();
-    state.volume = vol;
-    volumeMeterFill.style.width = (vol * 100) + '%';
 
-    // ALWAYS drain — battery constantly loses charge
-    state.energy -= DRAIN_RATE * dt;
+    if (state.mode === 'mic') {
+      // ── MIC MODE: drain + mic charge ──
+      const vol = getMicVolume();
+      state.volume = vol;
+      volumeMeterFill.style.width = (vol * 100) + '%';
 
-    // Mic noise charges it (can outpace drain when loud enough)
-    if (state.micActive && !state.micMuted && vol > 0.03) {
-      const adjusted = Math.min(vol * state.sensitivity, 1);
-      const chargeAmount = Math.pow(adjusted, 1.3) * CHARGE_RATE * dt;
-      state.energy += chargeAmount;
+      state.energy -= drainRate * dt;
+
+      if (state.micActive && !state.micMuted && vol > 0.03) {
+        const adjusted = Math.min(vol * state.sensitivity, 1);
+        const chargeAmount = Math.pow(adjusted, 1.3) * CHARGE_RATE * dt;
+        state.energy += chargeAmount;
+      }
+
+    } else if (state.mode === 'manual') {
+      // ── MANUAL MODE: drain only, host uses keys ──
+      state.volume = 0;
+      volumeMeterFill.style.width = '0%';
+      state.energy -= drainRate * dt;
+
+    } else if (state.mode === 'auto') {
+      // ── AUTO MODE: smooth rise/fall with natural variation ──
+      state.volume = 0;
+      volumeMeterFill.style.width = '0%';
+      state.autoTimer -= dt;
+
+      // Pick a new target periodically (every 2–5 seconds)
+      if (state.autoTimer <= 0) {
+        state.autoTimer = 2 + Math.random() * 3;
+        // Bias target upwards over time, with some randomness
+        const progress = state.energy / 100;
+        const bias = 0.6 + progress * 0.3; // tends to go up
+        state.autoTarget = Math.min(100, state.autoTarget + (Math.random() * 30 - 10) * bias);
+        state.autoTarget = Math.max(5, Math.min(100, state.autoTarget));
+      }
+
+      // Smoothly move towards target
+      const diff = state.autoTarget - state.energy;
+      state.energy += diff * state.autoSpeed * 0.02 * dt * 60;
     }
 
     // Clamp
@@ -1170,13 +1405,14 @@ document.addEventListener('keydown', (e) => {
       state.sensitivity = Math.max(0.1, state.sensitivity - 0.1);
       showSensitivity();
       break;
+    case 'p':
+    case 'P':
+      state.panelVisible = !state.panelVisible;
+      document.getElementById('controlPanel').classList.toggle('visible', state.panelVisible);
+      break;
     case 's':
     case 'S':
-      soundEnabled = !soundEnabled;
-      sensitivityDisp.textContent = soundEnabled ? 'SOUND: ON' : 'SOUND: OFF';
-      sensitivityDisp.classList.add('visible');
-      clearTimeout(sensitivityTimeout);
-      sensitivityTimeout = setTimeout(() => sensitivityDisp.classList.remove('visible'), 1200);
+      toggleSound();
       break;
     case 'c':
     case 'C':
@@ -1189,10 +1425,12 @@ document.addEventListener('keydown', (e) => {
 });
 
 function showSensitivity() {
-  sensitivityDisp.textContent = `MIC SENSITIVITY: ${state.sensitivity.toFixed(2)}x`;
+  sensitivityDisp.textContent = `MIC SENSITIVITY: ${state.sensitivity.toFixed(1)}x`;
   sensitivityDisp.classList.add('visible');
   clearTimeout(sensitivityTimeout);
   sensitivityTimeout = setTimeout(() => sensitivityDisp.classList.remove('visible'), 1200);
+  // Sync slider
+  if (typeof syncSensitivitySlider === 'function') syncSensitivitySlider();
 }
 
 // ═══════════════════════════════════════
@@ -1225,6 +1463,77 @@ async function tryAutoStart() {
   }
 }
 tryAutoStart();
+
+// ═══════════════════════════════════════
+//  CONTROL PANEL
+// ═══════════════════════════════════════
+const controlPanel   = document.getElementById('controlPanel');
+const sensitivitySlider = document.getElementById('sensitivitySlider');
+const sensitivityVal = document.getElementById('sensitivityValue');
+const drainSlider    = document.getElementById('drainSlider');
+const drainVal       = document.getElementById('drainValue');
+const autoSpeedSlider= document.getElementById('autoSpeedSlider');
+const autoSpeedVal   = document.getElementById('autoSpeedValue');
+const sensitivityRow = document.getElementById('sensitivityRow');
+const autoSpeedRow   = document.getElementById('autoSpeedRow');
+const soundToggleEl  = document.getElementById('soundToggle');
+
+// Slider bindings
+sensitivitySlider.addEventListener('input', () => {
+  state.sensitivity = parseFloat(sensitivitySlider.value);
+  sensitivityVal.textContent = state.sensitivity.toFixed(1) + 'x';
+});
+drainSlider.addEventListener('input', () => {
+  drainRate = parseFloat(drainSlider.value);
+  drainVal.textContent = drainRate.toFixed(0);
+});
+autoSpeedSlider.addEventListener('input', () => {
+  state.autoSpeed = parseFloat(autoSpeedSlider.value);
+  autoSpeedVal.textContent = state.autoSpeed.toFixed(0);
+});
+
+// Mode switching
+function setMode(mode) {
+  state.mode = mode;
+  document.getElementById('modeMic').classList.toggle('active', mode === 'mic');
+  document.getElementById('modeManual').classList.toggle('active', mode === 'manual');
+  document.getElementById('modeAuto').classList.toggle('active', mode === 'auto');
+
+  // Show/hide relevant controls
+  sensitivityRow.style.display = mode === 'mic' ? 'flex' : 'none';
+  autoSpeedRow.style.display = mode === 'auto' ? 'flex' : 'none';
+
+  // Reset auto mode state
+  if (mode === 'auto') {
+    state.autoTarget = state.energy;
+    state.autoTimer = 0;
+  }
+
+  // Update mic status display
+  if (mode === 'manual') {
+    micStatus.innerHTML = '<span class="dot muted"></span> MIC: OFF (MANUAL)';
+  } else if (mode === 'auto') {
+    micStatus.innerHTML = '<span class="dot" style="background:#ffcc00;box-shadow:0 0 6px #ffcc00;"></span> AUTO MODE';
+  } else {
+    updateMicDisplay();
+  }
+}
+
+// Sound toggle (from panel or S key)
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  soundToggleEl.classList.toggle('on', soundEnabled);
+  sensitivityDisp.textContent = soundEnabled ? 'SOUND: ON' : 'SOUND: OFF';
+  sensitivityDisp.classList.add('visible');
+  clearTimeout(sensitivityTimeout);
+  sensitivityTimeout = setTimeout(() => sensitivityDisp.classList.remove('visible'), 1200);
+}
+
+// Sync keyboard sensitivity changes to slider
+function syncSensitivitySlider() {
+  sensitivitySlider.value = state.sensitivity;
+  sensitivityVal.textContent = state.sensitivity.toFixed(1) + 'x';
+}
 
 // ═══════════════════════════════════════
 //  INIT
