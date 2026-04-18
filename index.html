@@ -262,23 +262,22 @@
   }
 
   .mic-status {
-    font-size: clamp(10px, 1.4vh, 16px);
-    letter-spacing: 3px;
-    text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.25);
     margin-top: 0.8vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   .mic-status .dot {
     display: inline-block;
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
-    margin-right: 6px;
-    vertical-align: middle;
-    background: #555;
+    background: #333;
+    transition: background 0.3s, box-shadow 0.3s;
   }
-  .mic-status .dot.active { background: #0f0; box-shadow: 0 0 6px #0f0; }
-  .mic-status .dot.muted { background: #f00; box-shadow: 0 0 6px #f00; }
+  .mic-status .dot.active { background: #0f0; box-shadow: 0 0 4px #0f0; }
+  .mic-status .dot.muted { background: #f00; box-shadow: 0 0 4px #f00; }
+  .mic-status .dot.auto { background: #ffcc00; box-shadow: 0 0 4px #ffcc00; }
 
   /* ── Volume Meter (small bar under battery) ── */
   .volume-meter {
@@ -763,7 +762,7 @@
   <div class="status-area">
     <div class="status-text generating" id="statusText">AWAITING ACTIVATION</div>
     <div class="mic-status" id="micStatus">
-      <span class="dot" id="micDot"></span> MIC: STANDBY
+      <span class="dot" id="micDot"></span>
     </div>
   </div>
 </div>
@@ -943,16 +942,19 @@ function getMicVolume() {
 }
 
 function updateMicDisplay() {
-  if (state.micMuted) {
-    micDot.className = 'dot muted';
-    micStatus.innerHTML = '<span class="dot muted" id="micDot"></span> MIC: MUTED';
+  const dot = micStatus.querySelector('.dot') || document.createElement('span');
+  dot.className = 'dot';
+  if (state.mode === 'auto') {
+    dot.classList.add('auto');
+  } else if (state.mode === 'manual') {
+    dot.classList.add('muted');
+  } else if (state.micMuted) {
+    dot.classList.add('muted');
   } else if (state.micActive) {
-    micDot.className = 'dot active';
-    micStatus.innerHTML = '<span class="dot active" id="micDot"></span> MIC: ACTIVE';
-  } else {
-    micDot.className = 'dot';
-    micStatus.innerHTML = '<span class="dot" id="micDot"></span> MIC: UNAVAILABLE';
+    dot.classList.add('active');
   }
+  micStatus.innerHTML = '';
+  micStatus.appendChild(dot);
 }
 
 // ═══════════════════════════════════════
@@ -1510,13 +1512,7 @@ function setMode(mode) {
   }
 
   // Update mic status display
-  if (mode === 'manual') {
-    micStatus.innerHTML = '<span class="dot muted"></span> MIC: OFF (MANUAL)';
-  } else if (mode === 'auto') {
-    micStatus.innerHTML = '<span class="dot" style="background:#ffcc00;box-shadow:0 0 6px #ffcc00;"></span> AUTO MODE';
-  } else {
-    updateMicDisplay();
-  }
+  updateMicDisplay();
 }
 
 // Sound toggle (from panel or S key)
