@@ -511,6 +511,37 @@
     letter-spacing: 1px;
   }
 
+  /* ── Logo Bar ── */
+  .logo-bar {
+    position: fixed;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    opacity: 0.35;
+    transition: opacity 0.3s;
+  }
+  .logo-bar:hover { opacity: 0.7; }
+  .logo-bar img {
+    height: clamp(28px, 3.5vh, 44px);
+    width: auto;
+    filter: grayscale(0.2);
+  }
+  .logo-bar .logo-sep {
+    width: 1px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.15);
+  }
+  .logo-bar .logo-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.4);
+  }
+
   /* ── Control Panel ── */
   .control-panel {
     position: fixed;
@@ -796,6 +827,17 @@
   <kbd>H</kbd> Toggle this Help<br>
   <kbd>C</kbd> Force Celebration<br>
 </div>
+<!-- Logo bar -->
+<div class="logo-bar">
+  <img src="logos/emc2.png" alt="EMC² Fraternity" title="EMC² Fraternity">
+  <div class="logo-sep"></div>
+  <span class="logo-label">Organized by EMC² Fraternity</span>
+  <div class="logo-sep"></div>
+  <img src="logos/vibecoders.png" alt="Vibe Coders PH" title="Vibe Coders PH">
+  <div class="logo-sep"></div>
+  <span class="logo-label">Powered by Vibe Coders PH</span>
+</div>
+
 <div class="help-toggle-hint">Press H for controls</div>
 
 <!-- Control Panel -->
