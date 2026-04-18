@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Roadrunner | Energy Bar</title>
+<style>
+  /* ── Reset & Base ── */
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; }
+
+  body {
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    background: #0a0a1a;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    cursor: default;
+  }
+
+  /* ── Circuit Grid Background ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Scanline overlay ── */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.05) 2px,
+      rgba(0, 0, 0, 0.05) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* ── Title Area ── */
+  .title-area {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    margin-bottom: 1.5vh;
+  }
+  .event-label {
+    font-size: clamp(14px, 2vh, 22px);
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: rgba(0, 255, 255, 0.5);
+    margin-bottom: 0.5vh;
+  }
+  .event-title {
+    font-size: clamp(28px, 5vh, 64px);
+    font-weight: 900;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    background: linear-gradient(90deg, #00ffff, #00ff88, #00ffff);
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: titleShimmer 3s ease-in-out infinite;
+    text-shadow: none;
+    filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.4));
+  }
+  @keyframes titleShimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+  .event-subtitle {
+    font-size: clamp(12px, 1.8vh, 20px);
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    color: rgba(0, 255, 255, 0.4);
+    margin-top: 0.5vh;
+  }
+
+  /* ── Main Container ── */
+  .main-container {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2vh;
+  }
+
+  /* ── Battery Wrapper ── */
+  .battery-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── Battery ── */
+  .battery {
+    position: relative;
+    width: clamp(120px, 16vw, 200px);
+    height: clamp(300px, 55vh, 550px);
+    border: 3px solid rgba(0, 255, 255, 0.5);
+    border-radius: 16px;
+    overflow: hidden;
+    background: rgba(0, 12, 20, 0.9);
+    box-shadow:
+      0 0 20px rgba(0, 255, 255, 0.1),
+      inset 0 0 40px rgba(0, 0, 0, 0.6);
+    transition: box-shadow 0.5s ease, border-color 0.5s ease;
+  }
+  .battery.charged {
+    border-color: rgba(0, 255, 255, 0.9);
+    box-shadow:
+      0 0 30px rgba(0, 255, 255, 0.4),
+      0 0 60px rgba(0, 255, 255, 0.15),
+      inset 0 0 30px rgba(0, 30, 50, 0.4);
+  }
+
+  /* Battery cap (top terminal) */
+  .battery-cap {
+    width: 36%;
+    height: clamp(12px, 1.8vh, 18px);
+    background: rgba(0, 255, 255, 0.45);
+    border-radius: 6px 6px 0 0;
+    margin-bottom: -2px;
+    box-shadow: 0 0 8px rgba(0, 255, 255, 0.2);
+    transition: background 0.5s, box-shadow 0.5s;
+  }
+  .battery-cap.charged {
+    background: rgba(0, 255, 255, 0.9);
+    box-shadow: 0 0 16px rgba(0, 255, 255, 0.6);
+  }
+
+  /* Battery fill */
+  .battery-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 0%;
+    transition: height 0.3s ease-out, background 0.5s ease;
+    background: linear-gradient(to top, #ff3333, #ff3333);
+    box-shadow: 0 0 20px rgba(255, 50, 50, 0.3);
+  }
+
+  /* Segment lines */
+  .battery-segments {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .segment-line {
+    width: 100%;
+    height: 2px;
+    background: rgba(0, 0, 0, 0.5);
+    box-shadow: 0 1px 0 rgba(0, 255, 255, 0.05);
+  }
+
+  /* Percentage inside battery */
+  .battery-percent {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(30px, 5.5vh, 64px);
+    font-weight: 800;
+    color: #fff;
+    text-shadow:
+      0 0 16px rgba(0, 0, 0, 0.9),
+      0 0 32px rgba(0, 0, 0, 0.6),
+      0 2px 4px rgba(0, 0, 0, 0.8);
+    z-index: 3;
+    letter-spacing: 2px;
+  }
+
+  /* ── Lightning bolt icon inside battery ── */
+  .bolt-icon {
+    position: absolute;
+    top: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: clamp(28px, 5vh, 60px);
+    opacity: 0;
+    z-index: 4;
+    filter: drop-shadow(0 0 10px rgba(255, 255, 0, 0.8));
+    transition: opacity 0.5s;
+    animation: boltPulse 1s ease-in-out infinite;
+  }
+  .bolt-icon.visible { opacity: 0.6; }
+  @keyframes boltPulse {
+    0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.6; }
+    50% { transform: translateX(-50%) scale(1.15); opacity: 1; }
+  }
+
+  /* ── Electric arcs on sides ── */
+  .electric-arcs {
+    position: absolute;
+    inset: -20px;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+  .electric-arcs.active { opacity: 1; }
+
+  .arc {
+    position: absolute;
+    width: 3px;
+    height: 40px;
+    background: rgba(0, 255, 255, 0.8);
+    filter: blur(1px);
+    animation: arcFlicker 0.15s infinite alternate;
+  }
+  @keyframes arcFlicker {
+    0% { opacity: 0.3; transform: scaleY(0.8) skewX(-5deg); }
+    100% { opacity: 1; transform: scaleY(1.2) skewX(5deg); }
+  }
+
+  /* ── Status Text ── */
+  .status-area {
+    text-align: center;
+    min-height: 10vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .status-text {
+    font-size: clamp(14px, 2.2vh, 28px);
+    font-weight: 600;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: rgba(0, 255, 255, 0.7);
+    text-shadow: 0 0 12px rgba(0, 255, 255, 0.2);
+    transition: all 0.3s;
+  }
+  .status-text.generating {
+    animation: statusPulse 1.5s ease-in-out infinite;
+  }
+  @keyframes statusPulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  .mic-status {
+    font-size: clamp(10px, 1.4vh, 16px);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.25);
+    margin-top: 0.8vh;
+  }
+  .mic-status .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+    background: #555;
+  }
+  .mic-status .dot.active { background: #0f0; box-shadow: 0 0 6px #0f0; }
+  .mic-status .dot.muted { background: #f00; box-shadow: 0 0 6px #f00; }
+
+  /* ── Volume Meter (small bar under battery) ── */
+  .volume-meter {
+    width: clamp(120px, 16vw, 200px);
+    height: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 1.2vh;
+  }
+  .volume-meter-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, rgba(0, 255, 255, 0.4), rgba(0, 255, 255, 0.7));
+    border-radius: 2px;
+    transition: width 0.1s;
+  }
+
+  /* ── Celebration Overlay ── */
+  .celebration-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(0, 20, 40, 0.85) 0%, rgba(0, 0, 0, 0.92) 100%);
+  }
+  .celebration-overlay.active {
+    opacity: 1;
+  }
+
+  .celebration-text {
+    font-size: clamp(40px, 8vw, 120px);
+    font-weight: 900;
+    text-align: center;
+    white-space: nowrap;
+    color: #fff;
+    -webkit-text-stroke: 2px rgba(0, 255, 255, 0.6);
+    text-shadow:
+      0 0 40px rgba(0, 255, 255, 0.8),
+      0 0 80px rgba(0, 255, 255, 0.4),
+      0 4px 8px rgba(0, 0, 0, 0.6);
+    transform: scale(0);
+    animation: none;
+  }
+  .celebration-text.active {
+    animation: celebReveal 0.6s ease-out forwards, celebGlow 2s ease-in-out infinite 0.6s;
+  }
+  @keyframes celebReveal {
+    0% { transform: scale(0) rotate(-5deg); opacity: 0; }
+    60% { transform: scale(1.1) rotate(1deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+  @keyframes celebGlow {
+    0%, 100% { text-shadow: 0 0 40px rgba(0, 255, 255, 0.8), 0 0 80px rgba(0, 255, 255, 0.4), 0 4px 8px rgba(0, 0, 0, 0.6); }
+    50% { text-shadow: 0 0 60px rgba(0, 255, 255, 1), 0 0 120px rgba(0, 255, 255, 0.6), 0 0 200px rgba(0, 200, 255, 0.3), 0 4px 8px rgba(0, 0, 0, 0.6); }
+  }
+
+  .celebration-kwh {
+    margin-top: clamp(12px, 2.5vh, 28px);
+    font-size: clamp(16px, 2.5vw, 36px);
+    font-weight: 600;
+    letter-spacing: 6px;
+    text-align: center;
+    color: #fff;
+    background: rgba(0, 255, 255, 0.1);
+    border: 1px solid rgba(0, 255, 255, 0.25);
+    border-radius: 8px;
+    padding: 10px 28px;
+    text-shadow: 0 0 16px rgba(0, 255, 255, 0.5);
+    opacity: 0;
+    transition: opacity 0.5s 0.7s;
+  }
+  .celebration-kwh.active { opacity: 1; }
+
+  .celebration-detail {
+    margin-top: clamp(6px, 1vh, 12px);
+    font-size: clamp(11px, 1.4vw, 20px);
+    font-weight: 400;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    text-align: center;
+    color: rgba(0, 255, 255, 0.5);
+    opacity: 0;
+    transition: opacity 0.5s 1s;
+  }
+  .celebration-detail.active { opacity: 1; }
+
+  .celebration-car {
+    margin-top: clamp(8px, 1.5vh, 16px);
+    font-size: clamp(13px, 1.8vw, 26px);
+    font-weight: 400;
+    letter-spacing: 3px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.8);
+    opacity: 0;
+    transition: opacity 0.5s 1.15s;
+  }
+  .celebration-car.active { opacity: 1; }
+  .celebration-car strong {
+    color: #00ffff;
+    font-weight: 700;
+  }
+
+  .celebration-run {
+    margin-top: clamp(16px, 3vh, 40px);
+    font-size: clamp(28px, 5vw, 72px);
+    font-weight: 900;
+    letter-spacing: 10px;
+    text-transform: uppercase;
+    text-align: center;
+    color: #ffcc00;
+    text-shadow:
+      0 0 20px rgba(255, 200, 0, 0.6),
+      0 0 40px rgba(255, 200, 0, 0.3),
+      0 2px 4px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.4s 1.3s, transform 0.4s 1.3s;
+  }
+  .celebration-run.active { opacity: 1; transform: scale(1); }
+
+  /* Screen flash */
+  .screen-flash {
+    position: fixed;
+    inset: 0;
+    background: white;
+    z-index: 200;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .screen-flash.flash {
+    animation: flashAnim 0.6s ease-out;
+  }
+  @keyframes flashAnim {
+    0% { opacity: 0.9; }
+    100% { opacity: 0; }
+  }
+
+  /* ── Canvas for confetti/particles ── */
+  #confettiCanvas {
+    position: fixed;
+    inset: 0;
+    z-index: 150;
+    pointer-events: none;
+  }
+
+  /* ── Start Overlay (for mic permission) ── */
+  .start-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3vh;
+    backdrop-filter: blur(10px);
+  }
+  .start-overlay.hidden { display: none; }
+
+  .start-btn {
+    font-size: clamp(20px, 3vw, 40px);
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    padding: 2vh 5vw;
+    background: transparent;
+    color: #00ffff;
+    border: 3px solid #00ffff;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+  }
+  .start-btn:hover {
+    background: rgba(0, 255, 255, 0.1);
+    box-shadow: 0 0 40px rgba(0, 255, 255, 0.4);
+    transform: scale(1.05);
+  }
+  .start-hint {
+    font-size: clamp(11px, 1.5vw, 18px);
+    color: rgba(255, 255, 255, 0.3);
+    letter-spacing: 2px;
+  }
+
+  /* ── Help Overlay ── */
+  .help-overlay {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 50;
+    background: rgba(0, 10, 20, 0.9);
+    border: 1px solid rgba(0, 255, 255, 0.2);
+    border-radius: 10px;
+    padding: 16px 22px;
+    font-size: 13px;
+    line-height: 1.9;
+    color: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(8px);
+    max-width: 280px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .help-overlay.visible { opacity: 1; pointer-events: auto; }
+  .help-overlay kbd {
+    display: inline-block;
+    background: rgba(0, 255, 255, 0.15);
+    border: 1px solid rgba(0, 255, 255, 0.3);
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-family: monospace;
+    font-size: 12px;
+    color: #00ffff;
+    margin: 0 2px;
+  }
+  .help-toggle-hint {
+    position: fixed;
+    bottom: 12px;
+    right: 16px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.15);
+    z-index: 50;
+    letter-spacing: 1px;
+  }
+
+  /* ── Sensitivity Display ── */
+  .sensitivity-display {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    color: rgba(0, 255, 255, 0.8);
+    z-index: 50;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+    letter-spacing: 2px;
+  }
+  .sensitivity-display.visible { opacity: 1; }
+
+  /* ── Floating particles ── */
+  .particles-container {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .particle {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    background: rgba(0, 255, 255, 0.4);
+    border-radius: 50%;
+    animation: floatUp linear infinite;
+  }
+  @keyframes floatUp {
+    0% { transform: translateY(0) scale(1); opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(-100vh) scale(0.5); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Start overlay (mic permission) -->
+<div class="start-overlay" id="startOverlay">
+  <div style="font-size: clamp(18px, 3vh, 30px); color: rgba(0,255,255,0.5); letter-spacing: 6px; text-transform: uppercase;">Quantum Roadrunner</div>
+  <div style="font-size: clamp(12px, 1.6vh, 18px); color: rgba(255,255,255,0.3); letter-spacing: 3px; margin-top: -1vh;">THE TECH RUN ⚡ ENERGY GENERATOR</div>
+  <button class="start-btn" id="startBtn">⚡ ACTIVATE ⚡</button>
+  <div class="start-hint">Click to enable microphone &amp; start the energy generator</div>
+  <div class="start-hint">Or press any key</div>
+</div>
+
+<!-- Floating particles background -->
+<div class="particles-container" id="particles"></div>
+
+<!-- Title -->
+<div class="title-area">
+  <div class="event-label">⚡ Energy Generator ⚡</div>
+  <div class="event-title">Quantum Roadrunner</div>
+  <div class="event-subtitle">The Tech Run</div>
+</div>
+
+<!-- Main -->
+<div class="main-container">
+  <div class="battery-wrapper">
+    <!-- Battery cap -->
+    <div class="battery-cap" id="batteryCap"></div>
+    
+    <!-- Battery body -->
+    <div class="battery" id="battery">
+      <div class="battery-fill" id="batteryFill"></div>
+      <div class="battery-segments">
+        <div class="segment-line"></div>
+        <div class="segment-line"></div>
+        <div class="segment-line"></div>
+        <div class="segment-line"></div>
+        <div class="segment-line"></div>
+        <div class="segment-line"></div>
+        <div class="segment-line"></div>
+        <div class="segment-line"></div>
+        <div class="segment-line"></div>
+      </div>
+      <div class="battery-percent" id="batteryPercent">0%</div>
+      <div class="bolt-icon" id="boltIcon">⚡</div>
+      
+      <!-- Electric arcs -->
+      <div class="electric-arcs" id="electricArcs">
+        <div class="arc" style="left:-8px; top:20%; animation-delay:0s;"></div>
+        <div class="arc" style="right:-8px; top:35%; animation-delay:0.05s;"></div>
+        <div class="arc" style="left:-8px; top:55%; animation-delay:0.1s;"></div>
+        <div class="arc" style="right:-8px; top:70%; animation-delay:0.03s;"></div>
+        <div class="arc" style="left:-8px; top:85%; animation-delay:0.08s;"></div>
+        <div class="arc" style="right:-8px; top:10%; animation-delay:0.12s;"></div>
+      </div>
+    </div>
+
+    <!-- Volume meter -->
+    <div class="volume-meter" id="volumeMeter">
+      <div class="volume-meter-fill" id="volumeMeterFill"></div>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-area">
+    <div class="status-text generating" id="statusText">AWAITING ACTIVATION</div>
+    <div class="mic-status" id="micStatus">
+      <span class="dot" id="micDot"></span> MIC: STANDBY
+    </div>
+  </div>
+</div>
+
+<!-- Celebration overlay -->
+<div class="celebration-overlay" id="celebrationOverlay">
+  <div class="celebration-text" id="celebrationText">⚡ FULLY CHARGED ⚡</div>
+  <div class="celebration-kwh" id="celebrationKwh">100 kWh Generated</div>
+  <div class="celebration-detail">Powered by Quantum Roadrunner human energy</div>
+  <div class="celebration-car">Enough to fully charge a <strong>ZEEKR 7X</strong> and drive 600 km</div>
+  <div class="celebration-run" id="celebrationRun">LET'S RUN!</div>
+</div>
+
+<!-- Screen flash -->
+<div class="screen-flash" id="screenFlash"></div>
+
+<!-- Confetti canvas -->
+<canvas id="confettiCanvas"></canvas>
+
+<!-- Help overlay -->
+<div class="help-overlay" id="helpOverlay">
+  <strong style="color:#00ffff;">HOST CONTROLS</strong><br>
+  <kbd>↑</kbd> <kbd>↓</kbd> Increase / Decrease<br>
+  <kbd>Space</kbd> Quick Boost (+10%)<br>
+  <kbd>R</kbd> Reset to 0%<br>
+  <kbd>F</kbd> Toggle Fullscreen<br>
+  <kbd>M</kbd> Mute / Unmute Mic<br>
+  <kbd>+</kbd> <kbd>-</kbd> Mic Sensitivity<br>
+  <kbd>S</kbd> Toggle Sound<br>
+  <kbd>H</kbd> Toggle this Help<br>
+  <kbd>C</kbd> Force Celebration<br>
+</div>
+<div class="help-toggle-hint">Press H for controls</div>
+
+<!-- Sensitivity popup -->
+<div class="sensitivity-display" id="sensitivityDisplay"></div>
+
+<script>
+// ═══════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════
+const state = {
+  energy: 0,            // 0–100 (displayed / smoothed)
+  micActive: false,
+  micMuted: false,
+  sensitivity: 2.0,     // mic sensitivity multiplier
+  started: false,
+  celebrating: false,
+  helpVisible: false,
+  volume: 0,
+  manualBoost: 0,       // temporary manual addition (decays)
+};
+
+// ═══════════════════════════════════════
+//  DOM REFS
+// ═══════════════════════════════════════
+const $ = id => document.getElementById(id);
+const batteryFill    = $('batteryFill');
+const batteryPercent = $('batteryPercent');
+const battery        = $('battery');
+const batteryCap     = $('batteryCap');
+const boltIcon       = $('boltIcon');
+const electricArcs   = $('electricArcs');
+const statusText     = $('statusText');
+const micStatus      = $('micStatus');
+const micDot         = $('micDot');
+const volumeMeterFill= $('volumeMeterFill');
+const startOverlay   = $('startOverlay');
+const helpOverlay    = $('helpOverlay');
+const sensitivityDisp= $('sensitivityDisplay');
+const celebOverlay   = $('celebrationOverlay');
+const celebText      = $('celebrationText');
+const celebKwh       = $('celebrationKwh');
+const celebRun       = $('celebrationRun');
+const celebDetail    = document.querySelector('.celebration-detail');
+const celebCar       = document.querySelector('.celebration-car');
+const screenFlash    = $('screenFlash');
+const confettiCanvas = $('confettiCanvas');
+const ctx            = confettiCanvas.getContext('2d');
+
+// ═══════════════════════════════════════
+//  MIC SETUP (Web Audio API)
+// ═══════════════════════════════════════
+let audioCtx, analyser, dataArray, micStream;
+
+async function initMic() {
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(micStream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.8;
+    source.connect(analyser);
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    state.micActive = true;
+    updateMicDisplay();
+  } catch (e) {
+    console.warn('Mic not available:', e);
+    state.micActive = false;
+    updateMicDisplay();
+  }
+}
+
+function getMicVolume() {
+  if (!analyser || state.micMuted) return 0;
+  analyser.getByteFrequencyData(dataArray);
+  let sum = 0;
+  for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+  const avg = sum / dataArray.length;
+  // Light normalization — any real noise should register
+  const normalized = Math.max(0, avg / 100);
+  return Math.min(normalized, 1);
+}
+
+function updateMicDisplay() {
+  if (state.micMuted) {
+    micDot.className = 'dot muted';
+    micStatus.innerHTML = '<span class="dot muted" id="micDot"></span> MIC: MUTED';
+  } else if (state.micActive) {
+    micDot.className = 'dot active';
+    micStatus.innerHTML = '<span class="dot active" id="micDot"></span> MIC: ACTIVE';
+  } else {
+    micDot.className = 'dot';
+    micStatus.innerHTML = '<span class="dot" id="micDot"></span> MIC: UNAVAILABLE';
+  }
+}
+
+// ═══════════════════════════════════════
+//  ENERGY MANAGEMENT
+// ═══════════════════════════════════════
+// Energy is now DIRECT — it tracks current mic volume, not cumulative.
+// Manual boost adds a temporary offset that decays over time.
+function addManualBoost(amt) {
+  state.manualBoost = Math.max(0, Math.min(100, state.manualBoost + amt));
+}
+
+function getEnergyColor(level) {
+  if (level < 20)  return { bg: 'linear-gradient(to top, #ff2222, #ff4444)', glow: 'rgba(255,50,50,0.4)' };
+  if (level < 40)  return { bg: 'linear-gradient(to top, #ff4444, #ff8800)', glow: 'rgba(255,120,0,0.4)' };
+  if (level < 60)  return { bg: 'linear-gradient(to top, #ff8800, #ffcc00)', glow: 'rgba(255,200,0,0.4)' };
+  if (level < 80)  return { bg: 'linear-gradient(to top, #ffcc00, #44ff44)', glow: 'rgba(100,255,100,0.4)' };
+  return { bg: 'linear-gradient(to top, #00ff88, #00ffff)', glow: 'rgba(0,255,255,0.5)' };
+}
+
+// ═══════════════════════════════════════
+//  RENDER LOOP
+// ═══════════════════════════════════════
+let lastTime = 0;
+const CHARGE_RATE = 20;          // max % per second from mic when loud
+const DRAIN_RATE = 8;            // % per second constant drain (always on)
+const SMOOTH_SPEED = 8;          // visual smoothing speed
+
+function update(time) {
+  const dt = Math.min((time - lastTime) / 1000, 0.1);
+  lastTime = time;
+
+  if (state.started && !state.celebrating) {
+    // Mic input → direct volume (0–1)
+    const vol = getMicVolume();
+    state.volume = vol;
+    volumeMeterFill.style.width = (vol * 100) + '%';
+
+    // ALWAYS drain — battery constantly loses charge
+    state.energy -= DRAIN_RATE * dt;
+
+    // Mic noise charges it (can outpace drain when loud enough)
+    if (state.micActive && !state.micMuted && vol > 0.03) {
+      const adjusted = Math.min(vol * state.sensitivity, 1);
+      const chargeAmount = Math.pow(adjusted, 1.3) * CHARGE_RATE * dt;
+      state.energy += chargeAmount;
+    }
+
+    // Clamp
+    state.energy = Math.max(0, Math.min(100, state.energy));
+
+    // Check celebration
+    if (state.energy >= 99.5 && !state.celebrating) {
+      triggerCelebration();
+    }
+  }
+
+  // Update visuals & sound
+  renderBattery();
+  updateSound(state.energy);
+  renderConfetti(dt);
+
+  requestAnimationFrame(update);
+}
+
+function renderBattery() {
+  const level = Math.round(state.energy);
+  const pct = state.energy;
+
+  batteryFill.style.height = pct + '%';
+  batteryPercent.textContent = level + '%';
+
+  const colors = getEnergyColor(pct);
+  batteryFill.style.background = colors.bg;
+  batteryFill.style.boxShadow = `0 0 30px ${colors.glow}`;
+
+  // Battery glow based on level
+  if (pct > 60) {
+    battery.classList.add('charged');
+    batteryCap.classList.add('charged');
+  } else {
+    battery.classList.remove('charged');
+    batteryCap.classList.remove('charged');
+  }
+
+  // Bolt icon
+  boltIcon.classList.toggle('visible', pct > 40);
+
+  // Electric arcs
+  electricArcs.classList.toggle('active', pct > 70);
+
+  // Status text
+  if (!state.celebrating) {
+    if (pct < 1) {
+      statusText.textContent = state.started ? 'MAKE SOME NOISE!' : 'AWAITING ACTIVATION';
+    } else if (pct < 30) {
+      statusText.textContent = 'GENERATING ENERGY...';
+    } else if (pct < 60) {
+      statusText.textContent = 'POWER RISING!';
+    } else if (pct < 85) {
+      statusText.textContent = 'ALMOST THERE!';
+    } else {
+      statusText.textContent = 'MAXIMUM POWER!!!';
+    }
+    statusText.classList.toggle('generating', pct > 0 && pct < 100);
+  }
+}
+
+// ═══════════════════════════════════════
+//  CELEBRATION (100%)
+// ═══════════════════════════════════════
+function triggerCelebration() {
+  state.celebrating = true;
+  state.energy = 100;
+
+  // Sound
+  playCelebrationSound();
+
+  // Flash
+  screenFlash.classList.add('flash');
+  setTimeout(() => screenFlash.classList.remove('flash'), 700);
+
+  // Overlay
+  celebOverlay.classList.add('active');
+  celebText.classList.add('active');
+  celebKwh.classList.add('active');
+  celebDetail.classList.add('active');
+  celebCar.classList.add('active');
+  celebRun.classList.add('active');
+
+  // Status
+  statusText.textContent = '⚡ FULLY CHARGED ⚡';
+  statusText.classList.remove('generating');
+  statusText.style.color = '#00ffff';
+  statusText.style.textShadow = '0 0 20px rgba(0,255,255,0.6)';
+
+  // Start confetti
+  spawnConfetti(200);
+
+  // Keep spawning confetti
+  celebInterval = setInterval(() => spawnConfetti(30), 500);
+}
+
+let celebInterval;
+
+function resetCelebration() {
+  state.celebrating = false;
+  state.energy = 0;
+
+  celebOverlay.classList.remove('active');
+  celebText.classList.remove('active');
+  celebKwh.classList.remove('active');
+  celebDetail.classList.remove('active');
+  celebCar.classList.remove('active');
+  celebRun.classList.remove('active');
+  statusText.style.color = '';
+  statusText.style.textShadow = '';
+
+  if (celebInterval) { clearInterval(celebInterval); celebInterval = null; }
+  confettiPieces.length = 0;
+}
+
+// ═══════════════════════════════════════
+//  SOUND ENGINE (Web Audio API synth)
+// ═══════════════════════════════════════
+let soundEnabled = true;
+let hum, humGain, humFilter;
+let lastSoundLevel = -1;
+
+function initSound() {
+  if (!audioCtx) return;
+
+  // Main gain for the hum/charging sound
+  humGain = audioCtx.createGain();
+  humGain.gain.value = 0;
+
+  // Low-pass filter to shape the tone
+  humFilter = audioCtx.createBiquadFilter();
+  humFilter.type = 'lowpass';
+  humFilter.frequency.value = 300;
+  humFilter.Q.value = 2;
+
+  // Base oscillator — sawtooth for a "charging" sound
+  hum = audioCtx.createOscillator();
+  hum.type = 'sawtooth';
+  hum.frequency.value = 60;
+
+  // Second oscillator for harmonic richness
+  const hum2 = audioCtx.createOscillator();
+  hum2.type = 'sine';
+  hum2.frequency.value = 120;
+  const hum2Gain = audioCtx.createGain();
+  hum2Gain.gain.value = 0.3;
+
+  // Route: oscillators → filter → gain → speakers
+  hum.connect(humFilter);
+  hum2.connect(hum2Gain);
+  hum2Gain.connect(humFilter);
+  humFilter.connect(humGain);
+  humGain.connect(audioCtx.destination);
+
+  hum.start();
+  hum2.start();
+
+  // Store hum2 for frequency updates
+  hum._hum2 = hum2;
+}
+
+function updateSound(energy) {
+  if (!humGain || !soundEnabled) {
+    if (humGain) humGain.gain.value = 0;
+    return;
+  }
+
+  const level = Math.round(energy);
+  if (level === lastSoundLevel) return;
+  lastSoundLevel = level;
+
+  const t = audioCtx.currentTime;
+  const pct = energy / 100; // 0–1
+
+  if (energy < 2) {
+    // Silent when empty
+    humGain.gain.setTargetAtTime(0, t, 0.1);
+    return;
+  }
+
+  // Frequency rises: 60 Hz at 0% → 220 Hz at 100%
+  const freq = 60 + pct * 160;
+  hum.frequency.setTargetAtTime(freq, t, 0.05);
+  if (hum._hum2) hum._hum2.frequency.setTargetAtTime(freq * 2, t, 0.05);
+
+  // Filter opens up as energy rises (darker at low, brighter at high)
+  humFilter.frequency.setTargetAtTime(200 + pct * 2000, t, 0.05);
+
+  // Volume: very quiet at low, moderate at high (never obnoxious)
+  // Curve so it's barely audible at low levels, clear at high
+  const vol = Math.pow(pct, 2) * 0.12;
+  humGain.gain.setTargetAtTime(vol, t, 0.08);
+}
+
+function playCelebrationSound() {
+  if (!audioCtx || !soundEnabled) return;
+
+  // Rising sweep
+  const sweep = audioCtx.createOscillator();
+  const sweepGain = audioCtx.createGain();
+  sweep.type = 'sine';
+  sweep.frequency.value = 300;
+  sweepGain.gain.value = 0.15;
+  sweep.connect(sweepGain);
+  sweepGain.connect(audioCtx.destination);
+
+  const t = audioCtx.currentTime;
+  sweep.frequency.setValueAtTime(300, t);
+  sweep.frequency.exponentialRampToValueAtTime(1200, t + 0.4);
+  sweep.frequency.exponentialRampToValueAtTime(800, t + 0.6);
+  sweepGain.gain.setValueAtTime(0.15, t);
+  sweepGain.gain.setTargetAtTime(0, t + 0.5, 0.1);
+
+  sweep.start(t);
+  sweep.stop(t + 0.8);
+
+  // Chord stab after sweep
+  setTimeout(() => {
+    if (!audioCtx || !soundEnabled) return;
+    const freqs = [523, 659, 784]; // C5, E5, G5 major chord
+    freqs.forEach((f, i) => {
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = f;
+      g.gain.value = 0.08;
+      osc.connect(g);
+      g.connect(audioCtx.destination);
+      const ct = audioCtx.currentTime;
+      g.gain.setValueAtTime(0.08, ct);
+      g.gain.setTargetAtTime(0, ct + 0.8, 0.3);
+      osc.start(ct);
+      osc.stop(ct + 1.5);
+    });
+  }, 350);
+
+  // Kill the hum
+  humGain.gain.setTargetAtTime(0, t, 0.05);
+}
+
+// ═══════════════════════════════════════
+//  CONFETTI ENGINE
+// ═══════════════════════════════════════
+const confettiPieces = [];
+const CONFETTI_COLORS = ['#00ffff', '#ff00ff', '#ffff00', '#00ff88', '#ff4444', '#4488ff', '#ffffff', '#ff8800'];
+
+function resizeCanvas() {
+  confettiCanvas.width = window.innerWidth;
+  confettiCanvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function spawnConfetti(count) {
+  for (let i = 0; i < count; i++) {
+    confettiPieces.push({
+      x: Math.random() * confettiCanvas.width,
+      y: -20 - Math.random() * 100,
+      w: 6 + Math.random() * 8,
+      h: 4 + Math.random() * 6,
+      vx: (Math.random() - 0.5) * 6,
+      vy: 2 + Math.random() * 5,
+      rot: Math.random() * 360,
+      rotSpeed: (Math.random() - 0.5) * 12,
+      color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+      life: 1,
+    });
+  }
+}
+
+function renderConfetti(dt) {
+  ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  for (let i = confettiPieces.length - 1; i >= 0; i--) {
+    const p = confettiPieces[i];
+    p.x += p.vx;
+    p.vy += 2 * dt; // gravity
+    p.y += p.vy;
+    p.rot += p.rotSpeed;
+    p.life -= 0.15 * dt;
+
+    if (p.y > confettiCanvas.height + 20 || p.life <= 0) {
+      confettiPieces.splice(i, 1);
+      continue;
+    }
+
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate((p.rot * Math.PI) / 180);
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+    ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════
+//  FLOATING PARTICLES (ambient)
+// ═══════════════════════════════════════
+function createParticles() {
+  const container = document.getElementById('particles');
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.bottom = '-5px';
+    p.style.animationDuration = (6 + Math.random() * 10) + 's';
+    p.style.animationDelay = (Math.random() * 10) + 's';
+    p.style.width = (2 + Math.random() * 3) + 'px';
+    p.style.height = p.style.width;
+    p.style.opacity = 0.2 + Math.random() * 0.3;
+    container.appendChild(p);
+  }
+}
+createParticles();
+
+// ═══════════════════════════════════════
+//  KEYBOARD CONTROLS
+// ═══════════════════════════════════════
+let sensitivityTimeout;
+
+document.addEventListener('keydown', (e) => {
+  // Start on any key from the overlay
+  if (!state.started) {
+    startApp();
+    return;
+  }
+
+  switch (e.key) {
+    case 'ArrowUp':
+      e.preventDefault();
+      state.energy = Math.min(100, state.energy + 3);
+      break;
+    case 'ArrowDown':
+      e.preventDefault();
+      state.energy = Math.max(0, state.energy - 3);
+      break;
+    case ' ':
+      e.preventDefault();
+      state.energy = Math.min(100, state.energy + 10);
+      // Small flash feedback
+      screenFlash.style.background = 'rgba(0,255,255,0.15)';
+      screenFlash.classList.add('flash');
+      setTimeout(() => {
+        screenFlash.classList.remove('flash');
+        screenFlash.style.background = 'white';
+      }, 400);
+      break;
+    case 'r':
+    case 'R':
+      resetCelebration();
+      break;
+    case 'f':
+    case 'F':
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+      break;
+    case 'm':
+    case 'M':
+      state.micMuted = !state.micMuted;
+      updateMicDisplay();
+      break;
+    case 'h':
+    case 'H':
+      state.helpVisible = !state.helpVisible;
+      helpOverlay.classList.toggle('visible', state.helpVisible);
+      break;
+    case '+':
+    case '=':
+      state.sensitivity = Math.min(3, state.sensitivity + 0.1);
+      showSensitivity();
+      break;
+    case '-':
+    case '_':
+      state.sensitivity = Math.max(0.1, state.sensitivity - 0.1);
+      showSensitivity();
+      break;
+    case 's':
+    case 'S':
+      soundEnabled = !soundEnabled;
+      sensitivityDisp.textContent = soundEnabled ? 'SOUND: ON' : 'SOUND: OFF';
+      sensitivityDisp.classList.add('visible');
+      clearTimeout(sensitivityTimeout);
+      sensitivityTimeout = setTimeout(() => sensitivityDisp.classList.remove('visible'), 1200);
+      break;
+    case 'c':
+    case 'C':
+      if (!state.celebrating) {
+        state.energy = 100;
+        triggerCelebration();
+      }
+      break;
+  }
+});
+
+function showSensitivity() {
+  sensitivityDisp.textContent = `MIC SENSITIVITY: ${state.sensitivity.toFixed(2)}x`;
+  sensitivityDisp.classList.add('visible');
+  clearTimeout(sensitivityTimeout);
+  sensitivityTimeout = setTimeout(() => sensitivityDisp.classList.remove('visible'), 1200);
+}
+
+// ═══════════════════════════════════════
+//  START
+// ═══════════════════════════════════════
+async function startApp() {
+  if (state.started) return;
+  state.started = true;
+  startOverlay.classList.add('hidden');
+  await initMic();
+  initSound();
+}
+
+document.getElementById('startBtn').addEventListener('click', startApp);
+
+// Prevent spacebar scrolling
+window.addEventListener('keydown', e => {
+  if (e.key === ' ') e.preventDefault();
+});
+
+// Auto-start if mic permission was already granted (skips overlay)
+async function tryAutoStart() {
+  try {
+    const result = await navigator.permissions.query({ name: 'microphone' });
+    if (result.state === 'granted') {
+      startApp();
+    }
+  } catch (e) {
+    // permissions API not supported, user will click manually
+  }
+}
+tryAutoStart();
+
+// ═══════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════
+requestAnimationFrame(update);
+</script>
+</body>
+</html>
