@@ -845,11 +845,24 @@
     </div>
   </div>
 
-  <!-- Sound toggle -->
+  <!-- Sound style -->
   <div class="control-row">
     <span class="control-label">Sound</span>
     <div class="control-right">
-      <div class="toggle on" id="soundToggle" onclick="toggleSound()"></div>
+      <button class="mode-btn" id="sndOff" onclick="setSoundMode('off')">Off</button>
+      <button class="mode-btn" id="sndChimes" onclick="setSoundMode('chimes')">Chimes</button>
+      <button class="mode-btn active" id="sndMelody" onclick="setSoundMode('melody')">Melody</button>
+    </div>
+  </div>
+
+  <!-- Volume slider -->
+  <div class="control-row" id="soundVolRow">
+    <span class="control-label">Volume</span>
+    <div class="control-right">
+      <div class="slider-wrap">
+        <input type="range" class="ctrl-slider" id="soundVolSlider" min="0" max="100" step="5" value="60">
+      </div>
+      <span class="control-value" id="soundVolValue">60%</span>
     </div>
   </div>
 </div>
@@ -1144,59 +1157,56 @@ function resetCelebration() {
 }
 
 // ═══════════════════════════════════════
-//  SOUND ENGINE — Rising Melody + Sparkle
+//  SOUND ENGINE
 // ═══════════════════════════════════════
-let soundEnabled = true;
+let soundMode = 'melody';  // 'off', 'chimes', 'melody'
+let soundVolume = 0.6;     // 0–1 master volume
 let lastMilestone = -1;
 
-// C major pentatonic scale across 2 octaves — bright and happy
+// C major pentatonic scale across 2 octaves
 const MELODY_NOTES = [
-  523.25, // C5
-  587.33, // D5
-  659.25, // E5
-  783.99, // G5
-  880.00, // A5
-  1046.50, // C6
-  1174.66, // D6
-  1318.51, // E6
-  1567.98, // G6
-  1760.00, // A6
+  523.25, 587.33, 659.25, 783.99, 880.00,
+  1046.50, 1174.66, 1318.51, 1567.98, 1760.00,
 ];
 
-function initSound() {
-  // No persistent oscillators — we play notes on demand
-}
+// Single chime note (same note, different octaves)
+const CHIME_NOTES = [
+  523.25, 587.33, 659.25, 698.46, 783.99,
+  880.00, 987.77, 1046.50, 1174.66, 1318.51,
+];
+
+function initSound() {}
 
 function playNote(freq, duration, volume, delay) {
-  if (!audioCtx || !soundEnabled) return;
+  if (!audioCtx || soundMode === 'off') return;
+  const vol = volume * soundVolume;
+  if (vol < 0.001) return;
+
   const t = audioCtx.currentTime + (delay || 0);
 
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
-
-  // Sine wave = pure and pleasant
   osc.type = 'sine';
   osc.frequency.value = freq;
 
-  // Add a subtle second harmonic for warmth
+  // Subtle warm overtone
   const osc2 = audioCtx.createOscillator();
   const gain2 = audioCtx.createGain();
   osc2.type = 'sine';
   osc2.frequency.value = freq * 2;
-  gain2.gain.value = volume * 0.15; // subtle overtone
 
   osc.connect(gain);
   osc2.connect(gain2);
   gain.connect(audioCtx.destination);
   gain2.connect(audioCtx.destination);
 
-  // Nice envelope: quick attack, gentle decay
+  // Envelope: quick attack, gentle decay
   gain.gain.setValueAtTime(0, t);
-  gain.gain.linearRampToValueAtTime(volume, t + 0.03);
+  gain.gain.linearRampToValueAtTime(vol, t + 0.03);
   gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 
   gain2.gain.setValueAtTime(0, t);
-  gain2.gain.linearRampToValueAtTime(volume * 0.15, t + 0.03);
+  gain2.gain.linearRampToValueAtTime(vol * 0.15, t + 0.03);
   gain2.gain.exponentialRampToValueAtTime(0.001, t + duration);
 
   osc.start(t);
@@ -1206,26 +1216,34 @@ function playNote(freq, duration, volume, delay) {
 }
 
 function updateSound(energy) {
-  if (!audioCtx || !soundEnabled) return;
+  if (!audioCtx || soundMode === 'off') return;
 
-  // Play a note at each 10% milestone (ascending the scale)
   const milestone = Math.floor(energy / 10);
 
   if (milestone !== lastMilestone && milestone > lastMilestone && milestone >= 1 && milestone <= 10) {
-    const noteIndex = Math.min(milestone - 1, MELODY_NOTES.length - 1);
-    const freq = MELODY_NOTES[noteIndex];
-    // Gets slightly louder as we go higher
-    const vol = 0.06 + milestone * 0.012;
-    playNote(freq, 0.5 + milestone * 0.05, vol, 0);
+    const noteIndex = Math.min(milestone - 1, 9);
+
+    if (soundMode === 'chimes') {
+      // Single bell-like chime — same pleasant ding, pitch rises slightly
+      const freq = CHIME_NOTES[noteIndex];
+      playNote(freq, 0.6, 0.1, 0);
+      // Add a soft octave above for shimmer
+      playNote(freq * 2, 0.3, 0.03, 0.02);
+    } else if (soundMode === 'melody') {
+      // Ascending scale notes
+      const freq = MELODY_NOTES[noteIndex];
+      const vol = 0.06 + milestone * 0.012;
+      playNote(freq, 0.5 + milestone * 0.05, vol, 0);
+    }
   }
 
   lastMilestone = milestone;
 }
 
 function playCelebrationSound() {
-  if (!audioCtx || !soundEnabled) return;
+  if (!audioCtx || soundMode === 'off') return;
 
-  // Sparkle cascade — high twinkly notes descending
+  // Sparkle cascade — twinkly notes down then up
   const sparkleNotes = [
     2637, 2349, 2093, 1760, 1568, 1397, 1319, 1175, 1047,
     1319, 1568, 2093, 2637, 3136, 3520
@@ -1233,18 +1251,24 @@ function playCelebrationSound() {
 
   sparkleNotes.forEach((freq, i) => {
     const vol = 0.06 + (i < 9 ? (8 - i) * 0.005 : (i - 8) * 0.008);
-    const delay = i * 0.08;
-    const dur = 0.4 + (i > 9 ? 0.3 : 0);
-    playNote(freq, dur, vol, delay);
+    playNote(freq, 0.4 + (i > 9 ? 0.3 : 0), vol, i * 0.08);
   });
 
-  // Final shimmering chord after the cascade
+  // Shimmering chord
   setTimeout(() => {
-    if (!audioCtx || !soundEnabled) return;
+    if (!audioCtx || soundMode === 'off') return;
     [1047, 1319, 1568, 2093, 2637].forEach((f, i) => {
       playNote(f, 1.8, 0.045, i * 0.04);
     });
   }, sparkleNotes.length * 80 + 100);
+}
+
+function setSoundMode(mode) {
+  soundMode = mode;
+  document.getElementById('sndOff').classList.toggle('active', mode === 'off');
+  document.getElementById('sndChimes').classList.toggle('active', mode === 'chimes');
+  document.getElementById('sndMelody').classList.toggle('active', mode === 'melody');
+  document.getElementById('soundVolRow').style.display = mode === 'off' ? 'none' : 'flex';
 }
 
 // ═══════════════════════════════════════
@@ -1457,9 +1481,14 @@ const autoSpeedSlider= document.getElementById('autoSpeedSlider');
 const autoSpeedVal   = document.getElementById('autoSpeedValue');
 const sensitivityRow = document.getElementById('sensitivityRow');
 const autoSpeedRow   = document.getElementById('autoSpeedRow');
-const soundToggleEl  = document.getElementById('soundToggle');
+const soundVolSlider = document.getElementById('soundVolSlider');
+const soundVolVal    = document.getElementById('soundVolValue');
 
 // Slider bindings
+soundVolSlider.addEventListener('input', () => {
+  soundVolume = parseInt(soundVolSlider.value) / 100;
+  soundVolVal.textContent = soundVolSlider.value + '%';
+});
 sensitivitySlider.addEventListener('input', () => {
   state.sensitivity = parseFloat(sensitivitySlider.value);
   sensitivityVal.textContent = state.sensitivity.toFixed(1) + 'x';
@@ -1494,11 +1523,13 @@ function setMode(mode) {
   updateMicDisplay();
 }
 
-// Sound toggle (from panel or S key)
+// Sound cycle (S key)
 function toggleSound() {
-  soundEnabled = !soundEnabled;
-  soundToggleEl.classList.toggle('on', soundEnabled);
-  sensitivityDisp.textContent = soundEnabled ? 'SOUND: ON' : 'SOUND: OFF';
+  const modes = ['off', 'chimes', 'melody'];
+  const idx = (modes.indexOf(soundMode) + 1) % modes.length;
+  setSoundMode(modes[idx]);
+  const labels = { off: 'SOUND: OFF', chimes: 'SOUND: CHIMES', melody: 'SOUND: MELODY' };
+  sensitivityDisp.textContent = labels[soundMode];
   sensitivityDisp.classList.add('visible');
   clearTimeout(sensitivityTimeout);
   sensitivityTimeout = setTimeout(() => sensitivityDisp.classList.remove('visible'), 1200);
